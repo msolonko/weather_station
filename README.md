@@ -3,3 +3,5 @@ The code you will find here is for an Arduino Weather Station. The weather stati
 ESP8266 -> PHP Page -> MySQL DB -> PHP -> Nice HTML Graphs.
 
 You will find the code for all of these, with some comments, here.
+
+Soon, there will be an instructable released on this.
