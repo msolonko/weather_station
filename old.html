@@ -1,0 +1,38 @@
+<!-- This page is almost the same as the other 2 except for the bottom part, which I will comment -->
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <a class="navbar-brand" href="#">Weather Station</a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse" id="navbarSupportedContent">
+    <ul class="navbar-nav mr-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="#!day">Day</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#!yesterday">Yesterday</a>
+      </li>
+	  <li class="nav-item">
+        <a class="nav-link active" href="#!old">Old</a>
+      </li>
+    </ul>
+  </div>
+</nav>
+<br>
+<div id = "dropdowns"><!-- dropdown so that we can select data based on month and year -->
+<div class="dropdown">
+<!-- first button (year)-->
+  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+  </button>
+  <div class="dropdown-menu" aria-labelledby="dropdownMenuButton" id="yearT"><!-- field for all the labels to go into. We will add the labels in the next step -->
+  </div>
+</div>
+<div class="dropdown"><!-- second dropdown for month-->
+  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton2" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+  </button>
+  <div class="dropdown-menu" aria-labelledby="dropdownMenuButton" id="monthM"><!-- field for all the labels to go into. We will add the labels in the next step -->
+    <a class="dropdown-item" onclick="month(12, true)">All</a><!-- Adding a label that will display all months for a given year. It calls a function that we will make in the next step. -->
+  </div>
+</div>
+</div>
+<br>

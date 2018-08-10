@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<!-- I know that this is super long, but hopefully you can get a general understanding by reading my comments -->
+<html>
+<head>
+<title>Weather Station</title><!-- titles the page -->
+<!-- replace the link below with a Bootstrap link from the previous step (Quick Start section of the website)-->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" integrity="sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" crossorigin="anonymous">
+<!-- replace the links below with the newest version-->
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.4/angular-route.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.0/Chart.bundle.min.js"></script>
+<style>
+[ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak], .ng-cloak, .x-ng-cloak {
+  display: none !important;
+/*Prevents uncompiled template from being displayed to user*/
+}
+
+a{/*sets a link font-size */
+font-size: 20px;
+}
+.date{/*defines some styles for the date*/
+font-size: 25px;
+color: black;
+text-align: center;
+}
+.dropdown{/*styles the two dropdowns on old.html */
+display: inline;
+}
+#dropdowns{/*aligns dropdowns div that contains two dropdowns*/
+text-align: center;
+}
+.dropdown-item{/*changes cursor when over a dropdown*/
+	cursor: pointer;
+}
+</style>
+</head>
+<body ng-app="weatherStation" ng-cloak onresize="resize()"><!--tells the body that we are using AngularJS, uses ng-cloak (see comment above in CSS section) and calls a resize function (defined later below)-->
+<div ng-view></div><!-- place for our three views from weather_views to go into -->
+<div id = "container" class="container-fluid"></div><!-- contains the charts that we will display -->
+<script>//start of JS
+var t, m, y, d, years;//defines some variables (used later)
+var canvases = [];//array of 4 canvases (for each data type we are collecting)
+var charts = [];//array of each chart
+var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December", "All"];//defines list of months for old.html dropdown
+resize();//calls resize right away to determine font-size
+/*** routing ***/
+var app = angular.module("weatherStation", ['ngRoute']);//creates AngularJS App
+app.config(function($routeProvider) {//this will handle going from one page to another
+  $routeProvider
+  .when("/day", {//if we want to see the day page
+    templateUrl : "weather_views/day.html",//display the page located at this location
+	controller : "day"//assign a controller for that page
+  })
+  .when("/old", {//same as above
+    templateUrl : "weather_views/old.html",
+	controller : "old"
+  })
+  .when("/yesterday", {//same as above
+    templateUrl : "weather_views/yesterday.html",
+	controller : "yesterday"
+  })
+  .otherwise({//sets day to be the default page
+  redirectTo: "/day"
+  })
+});
+
+/*** controllers ***/
+
+  app.controller("day", function($scope, $http) {//day controller. Scope will store variables and http is used for communication with the server. 
+		d=false;//variable that is only used in the old controller. This clears it. 
+    makeCanvases();//calls makeCanvases function. Creates 4 canvases(that will later contain the graphs) and adds them to DOM
+    $scope.lastDay = 0;//defines last day variable that will later store the day of the last data point to see when the day has changed (and all ids were updated)
+	$scope.getData = function(getAll){//most important function of this controller
+			var obj = {//this object will be sent to a function
+				getAll: getAll,//variable to decide if we need all id=1 data or just the most recent one
+				page: "day",//tells the function which page the request is from
+				last: $scope.dataObj["last"],//sends counter of last received data point
+				run: function(r){//needs the data returned from database as input
+					if(getAll){//if we want all data
+						$scope.date = $scope.dataObj["date"];//set the date variable (to display on day.html)
+					}
+					else{//if we do not want all data
+						$scope.dataObj[1] = concatObj([$scope.dataObj[1], r[1]], ["time", "light", "temperature", "pressure", "humidity"]);//joins old array with newest data
+						$scope.dataObj["day"] = r["day"];//updates the day variable for the most recent data point
+						$scope.dataObj["last"] = r["last"];//saves the last counter value for later getAll=false calls
+					}
+					charts = [];//empties chart array
+					makeAllCharts($scope.dataObj[1]);//makes new charts using new data
+				}
+			}
+		getData(obj, $http, $scope);//calls getData function passing in the created object, scope, and http. This function calls the run function defined above
+	};
+	$scope.checkDate = function(){//checks if the date has changed
+		if(checkDate($scope.dataObj["day"], $scope.lastDay)){//calls defined function(returns true if date changed)
+			$scope.lastDay = $scope.dataObj["day"];//set the new day to be in the lastDay variable
+			$scope.start();//gets all the new data because of the process that runs on esp.php if a new day begins
+		}
+		else{
+			$scope.lastDay = $scope.dataObj["day"];//if the date has not changed, or the lastDay variable has not been defined, set it to the current day
+		}
+	};
+	$scope.start = function(){//starts the processes in the day.html page
+		$scope.dataObj = {};//creates an object that will store all data
+		$scope.getData(true);//calls function to get all data
+	};
+	
+	$scope.start();//calls the function above
+	t = setInterval($scope.getData, 650000,false);//gets new data every ~11 minutes to allow for time to send the data back and forth(new data is collected every 10 minutes)
+  });
+  
+ //yesterday
+app.controller("yesterday", function($scope, $http) {//I will only comment the things that are different from the day controller
+	d=false;
+    makeCanvases();
+    $scope.lastDay = 0;
+	$scope.getData = function(getAll){
+		var obj = {
+				getAll: getAll,
+				page: "yesterday",
+				last: $scope.dataObj["last"],
+				run: function(r){
+					$scope.date = $scope.dataObj["date"];//saves date to variable
+					makeAllCharts($scope.dataObj[2]);//makes new charts using data
+				}
+			}
+		getData(obj, $http, $scope);
+	};
+	$scope.checkDate = function(){//same explanation as for the day controller
+		if(checkDate($scope.dataObj["day"], $scope.lastDay)){
+			$scope.lastDay = $scope.dataObj["day"];
+			$scope.start();//new data
+		}
+		else{
+			$scope.lastDay = $scope.dataObj["day"];
+		}
+	};
+	$scope.start = function(){
+		$scope.dataObj = {};
+		$scope.getData(true);
+	};
+	
+	$scope.start();//starts above function
+  }); 
+   
+   //old id=3
+ app.controller("old", function($scope, $http) {
+  $scope.lastDay = 0;//defines last day variable
+	years={};//clears years global variable (used later)
+	$scope.getData = function(getAll){//most important function of this controller
+var obj = {//creates the object that will be sent to getData function
+				getAll: getAll,
+				page: "old",//identifies the page which is making the request
+				last: $scope.dataObj["last"],//sends last variable (placeholder - last variable is only used in the day controller)
+				run: function(r){//function to be run using r - response.data
+					for(var i = 0; i<$scope.dataObj["years"].length; i++){//loop through all distinct years that we have recorded
+//Adds year to drop down on the old page with an HTML injection
+						document.getElementById("yearT").innerHTML += '<a class="dropdown-item" onclick="year('+i+', true)">'+$scope.dataObj["years"][i]+'</a>';
+						years[String($scope.dataObj["years"][i])]=[];//makes an array for each year in years variable
+						for(prop in $scope.dataObj[3][$scope.dataObj["years"][i]]){//loops through each year's data
+							years[$scope.dataObj["years"][i]].push(prop);//adds the data for each year into our global array
+						}
+					}
+					d=r;//sets response data to a global variable d (for data )
+					year(0, false);//calls function that will display data (it is commented below)
+					doTheCharts();//calls another function that calls a few more functions to make the charts
+				}
+			}
+		getData(obj, $http, $scope);//calls function to get new data passing in the object we created, scope for variables and http 
+	};
+	$scope.checkDate = function(){//check data function
+		if(checkDate($scope.dataObj["day"], $scope.lastDay)){//if the day has changed
+			$scope.lastDay = $scope.dataObj["day"];
+			$scope.start();//new data
+		}
+		else{
+			$scope.lastDay = $scope.dataObj["day"];//set lastDay value to today
+		}
+	};
+	$scope.start = function(){//begins all the code by getting data
+		$scope.dataObj = {};//creates an empty object for local data storage
+		$scope.getData(true);
+	};
+	$scope.start();//calls the above function
+  });
+  
+  /*** Shared functions ***/
+ var checkDate = function(c, l){//checks date (returns true if the day has changed and false if it hasn't)
+	return !((c === l) || (l === 0));
+  };
+  var concatObj = function(objList, categoryList) {//useful function for id=1 that adds the new data from server to older data
+	  var obj = {};//empty object that will be returned
+	  for(var j=0; j<categoryList.length; j++){//loops through each category and makes an array for each category in obj
+		obj[categoryList[j]] = [];
+	  }
+	for(var i = 0; i<objList.length; i++){//loops through all objects (for this project it is always 2, but I made it work for any number)
+		for(var j=0; j<categoryList.length; j++){//loops through each category
+			for(var temp in objList[i][categoryList[j]]){//loops through each data item for a specific object and specific category
+				obj[categoryList[j]].push(objList[i][categoryList[j]][temp]);//adds that data to the object based on the category it came from
+			}
+		}
+    }
+	   return obj;//returns object (which is the combination of data from multiple objects)
+    };
+	
+	var makeChart = function(ctx, data, labels, color, label, min, max){//this is the ChartJS Portion of the code. As you can see, we send 7 inputs to customize the code
+	//inputs = (canvas context, the actual data, x-axis data, color for line, label for the user to see, predicted minimum value, predicted maximum value)
+
+	charts.push(new Chart(ctx, {//adds a new chart to our charts array
+    type: 'line',
+    data: {
+        labels: labels,//x-axis - time
+        datasets: [{//data settings
+            label: label,
+            data: data,
+			fill: false,
+            borderColor: [
+                color
+            ],
+			pointRadius: 0,
+            borderWidth: 5,
+        }]
+    },
+    options: {//removes animation for better performance
+	  animation: {
+            duration: 0,
+        },
+        hover: {
+            animationDuration: 0,
+        },
+        responsiveAnimationDuration: 0,
+		events: [],
+        scales: {
+            yAxes: [{
+                ticks: {
+					suggestedMin: min, //suggested mins and maxes (if they are wrong, the chart automatically adjusts)
+					suggestedMax: max,
+					fontSize: size
+                },
+            }],
+			 xAxes: [{
+                ticks: {
+					fontSize: size
+                },
+            }]
+        }
+    }
+}));
+	}
+	
+	function makeCanvases(){//makes the canvases
+	  clearInterval(t);//clears interval that is only needed for id=1
+		var myNode = document.getElementById("container");//gets container
+		while (myNode.firstChild) {//loops through all children of container
+    	myNode.removeChild(myNode.firstChild);//removes them (old canvases)
+		}
+		canvases = [];//clears array
+		for(var i = 0; i<4; i++){//loops through 0 - 4 which corresponds to one of our charts
+			canvases[i] = document.createElement("canvas");//makes new canvas
+			document.getElementById("container").appendChild(canvases[i]);  //adds new canvas to DOM  
+			document.getElementById("container").appendChild(document.createElement("br"));//adds a break element
+		}
+	}
+	/**********/
+	function resize(){//adjusts chart font based on screen width
+		size=(window.innerWidth>800)?15:12;//if width is bigger than 800, use 15 font, else, use 12
+		for(var x in charts){//loops through all charts
+		//sets font size for all axis
+  charts[x].options.scales.xAxes[0].ticks.minor.fontSize = charts[x].options.scales.yAxes[0].ticks.minor.fontSize = charts[x].options.scales.yAxes[0].ticks.fontSize = charts[x].options.scales.xAxes[0].ticks.fontSize = size;
+			charts[x].update();//updates charts with new font size
+		}
+	}
+	function month(n, bool){//month function that gets called when use selects a month on old.html
+		m=n;//global variable gets the month value
+		document.getElementById("dropdownMenuButton2").innerHTML = months[n];//sets the dropdown label to display the month that was clicked
+		if(bool){//if a chart update is required, call the chart function
+			doTheCharts();
+		}
+	}
+	function year(n, bool){//called when a year is selected
+		y=n;//global variable gets the year value
+		var monthArray = [];//empty month array
+		for(var i = 0; i<12; i++){
+			monthArray[i] = '<a class="dropdown-item" onclick="month('+i+', true)">'+months[i]+'</a>';//adds html to month array that will correctly display each month
+		}
+		document.getElementById("dropdownMenuButton1").innerHTML = 2017+n;//displays year on year dropdown
+		document.getElementById("monthM").innerHTML='<a class="dropdown-item" onclick="month(12, true)">All</a>';//adds a month tab that displays ALL months
+		for(prop in years[n+2017]){//for each month in the year
+			document.getElementById("monthM").innerHTML = document.getElementById("monthM").innerHTML+monthArray[years[n+2017][prop]-1];//add html to display month if it exists in the year variable
+		}
+		month(12, true);//when year is selected, call the month function to initially display all months and update it
+		if(bool){//if an update is required of charts, call the doTheCharts function
+			doTheCharts();
+		}
+	}
+	function makeAllCharts(o){//makes all 4 charts
+		var n = getMinMax(o["light"]);//call function that determines min and max value of data and returns an array
+		makeChart(canvases[0],o["light"], o["time"],"blue", "Light", n[0]-10, n[1]+10);//make a chart. Notice how the last 2 inputs are min (index 0 of returned array) and max  - index 1
+//+ and - 10 are for margins
+//below lines are the same as above
+		n = getMinMax(o["temperature"]);
+		makeChart(canvases[1],o["temperature"], o["time"],"red", "Temperature(\u00B0C)", n[0]-3, n[1]+3);
+		n = getMinMax(o["pressure"]);
+		makeChart(canvases[2],o["pressure"], o["time"],"green", "Pressure(hPa)", n[0]-10, n[1]+10);
+		n = getMinMax(o["humidity"]);
+		makeChart(canvases[3],o["humidity"], o["time"],"black", "Humidity(%)", n[0]-10, n[1]+10);
+	}
+	function getData(o, h, s){//MOST important function here. This gets the data from the server. All 3 pages use it. 
+		h({//passed in http object is used to make a call
+			method: 'POST',//uses a post method
+			url: 'getWeatherData.php',//sends request to that URL
+			data: {all: o.getAll, last: o.last, page: o.page},//passes in values from that object that we created in the individual controllers
+		}).then(function(response){//get response
+			if(o.getAll){//if we wanted all data
+				s.dataObj = response.data;//sets the scope data variable to contain all returned data 
+			}
+				//console.log(s.dataObj); /*** For convenience if you want to see what data is returned ***/
+			o.run(response.data);//run the function that we made in the controllers
+			s.checkDate();//check date to see if the day changed
+	});
+	}
+	function doTheCharts(){//This makes the charts (main function for this)
+		makeCanvases();//clears canvases and clears arrays
+		if(m===12){//if displaying all months
+			var a = [];//creates array that will hold all relevant data
+			for(prop in years[y+2017]){//goes through each month in years 
+				a.push(d[3][y+2017][years[y+2017][prop]]);//pushes each relevant month into the array
+			}
+			var o = concatObj(a, ["light", "temperature", "pressure", "humidity", "time"]);//merges all the month data into one object
+			makeAllCharts(o);//calls function to make charts using that data
+		}
+		else{//if we only want a specific month
+			makeAllCharts(d[3][2017+y][m+1]);//makes all charts using the month we want
+		}
+	}
+	function getMinMax(o){//gets minimum and maximum value from a data object
+		var min = 100000;//sets min to a big value
+		var max = -100000; //sets max to a small value
+		for(i = 0; i<o.length;i++){//loops through object
+			if(parseFloat(o[i])<min){//if discovered value is less than minimum
+				min=parseFloat(o[i]);//update minimum
+			}
+			if(parseFloat(o[i])>max){//if discovered value is more than maximum
+				max = parseFloat(o[i]);//update maximum
+			}
+		}
+		return [min,max];//return array with max and min
+	}
+</script>
+<!-- Below are all the files needed for Bootstrap to run --> <!--Update these if you want, with the newer versions -->
+
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js" integrity="sha384-vFJXuSJphROIrBnz7yo7oB41mKfc8JzQZiCq4NCceLEaO4IHwicKwpJf9c9IpFgh" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js" integrity="sha384-alpBpkh1PFOepccYVYDB4do5UnbKysX5WZXm3XxPqe5iKTfUKjNkCk9SaVuEZflJ" crossorigin="anonymous"></script>
+</body>
+</html>

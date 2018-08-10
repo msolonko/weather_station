@@ -1,0 +1,22 @@
+<nav class="navbar navbar-expand-lg navbar-light bg-light"><!-- creates a Bootstrap Navbar -->
+	<a class="navbar-brand" href="#">Weather Station</a><!-- Uses the text weather station as the Brand -->
+	<button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+   <!-- creates a button that will appear when the screen size is too small to display all the page links -->
+   <span class="navbar-toggler-icon"></span><!-- icon for the collapse button -->
+  </button>
+	<div class="collapse navbar-collapse" id="navbarSupportedContent"> <!-- here we put all of our links -->
+		<ul class="navbar-nav mr-auto"><!-- starts a list of links that we will use -->
+			<li class="nav-item"><!-- defines first elements -->
+				<a class="nav-link active" href="#!day">Day</a><!--This is the first link for DAY. The class has `active` because we are showing the user which page they are currently on-->
+			</li>
+			<li class="nav-item"><!-- second item-->
+				<a class="nav-link" href="#!yesterday">Yesterday</a>
+			</li>
+			<li class="nav-item"><!-- third item-->
+				<a class="nav-link" href="#!old">Old</a>
+			</li>
+		</ul>
+		<!-- NOTE: href="#!day" is the AngularJS way to link to something in the same directory -->
+	</div>
+</nav>
+<p class="date">{{date}}</p><!-- paragraph element that will display today's date using the date variable. {{}} is AngularJS for showing the value of a variable-->
